@@ -1,16 +1,1 @@
-# Environment variables — NEVER commit these
-.env
-.env.local
-.env.production
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Editor
-.vscode/
-.idea/
-
-# Future node/npm if project grows
-node_modules/
-npm-debug.log
