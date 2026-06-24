@@ -38,7 +38,10 @@ async function _uploadToDrive(file, onProgress) {
     `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         name: file.name,
         mimeType: file.type || 'application/octet-stream',
@@ -46,23 +49,37 @@ async function _uploadToDrive(file, onProgress) {
       }),
     }
   );
+
   if (!initRes.ok) throw new Error('Drive upload init failed: ' + (await initRes.text()).slice(0, 120));
   const uploadUrl = initRes.headers.get('Location');
 
-  await new Promise((resolve, reject) => {
+  // Upload bytes and capture the response JSON
+  const uploadResult = await new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl);
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-    if (onProgress) xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error('Upload failed: ' + xhr.status));
+    if (onProgress) xhr.upload.onprogress = e => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+      else reject(new Error('Upload failed: ' + xhr.status));
+    };
     xhr.onerror = () => reject(new Error('Network error during upload'));
     xhr.send(file);
   });
 
-  const { fileId, viewLink } = await _get({ action: 'findFile', name: file.name });
-  return { fileId, viewLink };
-}
+  // File ID comes straight from Drive's response — no findFile call needed
+  const fileId = uploadResult.id;
 
+  // Make it viewable via Apps Script POST (which has Drive scope)
+  await _post({ action: 'shareFile', fileId });
+
+  return {
+    fileId,
+    viewLink: `https://drive.google.com/file/d/${fileId}/view`,
+  };
+}
 const API = {
   async loadDocuments() {
     const rows = await _get({ action: 'list' });
