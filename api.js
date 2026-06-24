@@ -72,9 +72,6 @@ async function _uploadToDrive(file, onProgress) {
   // File ID comes straight from Drive's response — no findFile call needed
   const fileId = uploadResult.id;
 
-  // Make it viewable via Apps Script POST (which has Drive scope)
-  await _post({ action: 'shareFile', fileId });
-
   return {
     fileId,
     viewLink: `https://drive.google.com/file/d/${fileId}/view`,
