@@ -64,8 +64,8 @@
   --label-policy-bg: #F3EEFF;
   --label-form:     #1A6FA3;
   --label-form-bg:  #E6F2FA;
-  --label-Folder Material: #2E7D52;
-  --label-Folder Material: #E8F5EE;
+  --label-clinical: #2E7D52;
+  --label-clinical-bg: #E8F5EE;
   --label-hr:       #D4850A;
   --label-hr-bg:    #FEF3E2;
   --label-ref:      #A8893C;
@@ -1511,14 +1511,7 @@ ul, ol { list-style: none; }
     };
 
     // Sample documents — replace with API data later
-    let docs = [
-      { id: 1, name: 'Patient Intake Consent Form', type: 'pdf',  labels: ['form', 'clinical'], desc: 'Standard consent form completed by all new patients at check-in.', date: '2024-11-02', starred: false, url: '#' },
-      { id: 2, name: 'Volunteer Orientation Handbook', type: 'docx', labels: ['hr', 'policy'], desc: 'Onboarding guide for all new clinic volunteers covering protocols and expectations.', date: '2024-10-15', starred: true,  url: '#' },
-      { id: 3, name: 'Medication Formulary 2024', type: 'xlsx', labels: ['clinical', 'ref'], desc: 'Current list of available medications and dispensing guidelines.', date: '2024-09-28', starred: false, url: '#' },
-      { id: 4, name: 'HIPAA Privacy Policy', type: 'pdf',  labels: ['policy'], desc: 'Full HIPAA compliance policy and patient privacy notice.', date: '2024-08-10', starred: true,  url: '#' },
-      { id: 5, name: 'Blood Pressure Tracking Template', type: 'xlsx', labels: ['clinical', 'form'], desc: 'Excel template for logging BP readings across multiple visits.', date: '2024-07-22', starred: false, url: '#' },
-      { id: 6, name: 'Referral Network Directory', type: 'link', labels: ['ref', 'clinical'], desc: 'External link to Columbus-area specialty referral network.', date: '2024-06-05', starred: false, url: 'https://example.com' },
-    ];
+    let docs = [];  // loaded from Google Sheets via API
 
     let state = {
       filter: 'all',
@@ -1532,10 +1525,31 @@ ul, ol { list-style: none; }
     // ──────────────────────────────────────────
     // INIT
     // ──────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       buildSidebarLabels();
+
+      const { configured, reachable, error } = await API.healthCheck();
+
+      if (!configured) {
+        showToast('API not configured — set APPS_SCRIPT_URL in api.js', 'error');
+        renderDocs();
+        return;
+      }
+      if (!reachable) {
+        showToast('Cannot reach server: ' + error, 'error');
+        renderDocs();
+        return;
+      }
+
+      try {
+        docs = await API.loadDocuments();
+      } catch (e) {
+        showToast('Failed to load documents: ' + e.message, 'error');
+      }
+
       renderDocs();
       updateStats();
+      updateCounts();
     });
 
     // ──────────────────────────────────────────
@@ -1862,44 +1876,44 @@ ul, ol { list-style: none; }
       `).join('');
     }
 
-    function submitDocument() {
+    async function submitDocument() {
       const name = document.getElementById('doc-name').value.trim();
       const desc = document.getElementById('doc-desc').value.trim();
       const linkUrl = document.getElementById('link-url').value.trim();
       const isLinkPane = document.getElementById('pane-link').style.display !== 'none';
 
       if (!name) { showToast('Please enter a document name.', 'error'); return; }
+      if (!isLinkPane && pendingFiles.length === 0) { showToast('Please select a file to upload.', 'error'); return; }
+      if (isLinkPane && !linkUrl) { showToast('Please enter a URL.', 'error'); return; }
 
-      // Determine type
-      let type = 'gen';
-      if (isLinkPane) {
-        type = 'link';
-      } else if (pendingFiles.length > 0) {
-        const ext = pendingFiles[0].name.split('.').pop().toLowerCase();
-        if (ext === 'pdf') type = 'pdf';
-        else if (['doc','docx'].includes(ext)) type = 'docx';
-        else if (['xls','xlsx'].includes(ext)) type = 'xlsx';
-        else if (['png','jpg','jpeg','gif'].includes(ext)) type = 'img';
+      const btn = document.querySelector('#modal-upload .btn-primary');
+      btn.disabled = true;
+      btn.innerHTML = '<span>Saving…</span>';
+
+      try {
+        const saved = await API.addDocument({
+          name,
+          desc,
+          labels: [...selectedLabels],
+          file:    (!isLinkPane && pendingFiles[0]) ? pendingFiles[0] : null,
+          linkUrl: isLinkPane ? (linkUrl || '') : null,
+        }, pct => {
+          btn.innerHTML = `<span>Uploading… ${pct}%</span>`;
+        });
+
+        docs.unshift(saved);
+        closeModal('modal-upload');
+        resetUploadForm();
+        renderDocs();
+        updateStats();
+        updateCounts();
+        showToast(`"${saved.name}" added successfully.`, 'success');
+      } catch (e) {
+        showToast(e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Save Document';
       }
-
-      const newDoc = {
-        id: Date.now(),
-        name,
-        type,
-        labels: [...selectedLabels],
-        desc,
-        date: new Date().toISOString().split('T')[0],
-        starred: false,
-        url: isLinkPane ? (linkUrl || '#') : '#',
-        // file: pendingFiles[0] — will attach when wiring to API
-      };
-
-      docs.unshift(newDoc);
-      closeModal('modal-upload');
-      resetUploadForm();
-      renderDocs();
-      updateStats();
-      showToast(`"${name}" added successfully.`, 'success');
     }
 
     function resetUploadForm() {
@@ -1928,14 +1942,29 @@ ul, ol { list-style: none; }
       openModal('modal-delete');
     }
 
-    function confirmDelete() {
+    async function confirmDelete() {
       const doc = docs.find(d => d.id == state.pendingDeleteId);
-      docs = docs.filter(d => d.id != state.pendingDeleteId);
-      closeModal('modal-delete');
-      renderDocs();
-      updateStats();
-      if (doc) showToast(`"${doc.name}" deleted.`, 'info');
-      state.pendingDeleteId = null;
+      if (!doc) return;
+
+      const btn = document.querySelector('#modal-delete .btn-danger');
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+
+      try {
+        await API.deleteDocument(doc.id, doc.driveFileId || '');
+        docs = docs.filter(d => d.id != state.pendingDeleteId);
+        closeModal('modal-delete');
+        renderDocs();
+        updateStats();
+        updateCounts();
+        showToast(`"${doc.name}" deleted.`, 'info');
+        state.pendingDeleteId = null;
+      } catch (e) {
+        showToast(e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+      }
     }
 
     // ──────────────────────────────────────────
@@ -1978,17 +2007,43 @@ ul, ol { list-style: none; }
       }
     }
 
-    function saveEdit() {
+    async function saveEdit() {
       const idx = docs.findIndex(d => d.id == state.pendingEditId);
       if (idx === -1) return;
-      docs[idx].name    = document.getElementById('edit-name-input').value.trim() || docs[idx].name;
-      docs[idx].desc    = document.getElementById('edit-desc-input').value.trim();
-      docs[idx].labels  = [...editSelectedLabels];
-      docs[idx].starred = document.getElementById('edit-starred').checked;
-      closeModal('modal-edit');
-      renderDocs();
-      showToast('Document updated.', 'success');
-      state.pendingEditId = null;
+
+      const name    = document.getElementById('edit-name-input').value.trim();
+      const desc    = document.getElementById('edit-desc-input').value.trim();
+      const starred = document.getElementById('edit-starred').checked;
+
+      const btn = document.querySelector('#modal-edit .btn-primary');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      try {
+        await API.editDocument({
+          id:      state.pendingEditId,
+          name:    name || docs[idx].name,
+          desc,
+          labels:  [...editSelectedLabels],
+          starred,
+        });
+
+        // Update local copy immediately so UI is instant
+        docs[idx].name    = name || docs[idx].name;
+        docs[idx].desc    = desc;
+        docs[idx].labels  = [...editSelectedLabels];
+        docs[idx].starred = starred;
+
+        closeModal('modal-edit');
+        renderDocs();
+        showToast('Document updated.', 'success');
+        state.pendingEditId = null;
+      } catch (e) {
+        showToast(e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
     }
 
     // ──────────────────────────────────────────
@@ -2036,5 +2091,6 @@ ul, ol { list-style: none; }
     }
   </script>
 
+  <script src="api.js"></script>
 </body>
 </html>
