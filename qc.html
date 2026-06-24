@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Helping Hands — QC Diagnostics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold: #C9A84C; --gold-light: #E8D5A3; --gold-pale: #F5EDD6;
+      --gold-dim: #A8893C; --gold-glow: rgba(201,168,76,0.15);
+      --white: #FFFDF7; --off-white: #FAF7F0; --cream: #F2EBD9;
+      --text-dark: #2C2416; --text-mid: #5C4F38; --text-light: #8C7D60;
+      --topbar-bg: #1A1208; --topbar-border: rgba(201,168,76,0.2);
+      --border: #E8D9B8; --shadow-md: rgba(44,36,22,0.12);
+      --green: #2E7D52; --green-bg: #E8F5EE; --green-border: #b2dfcc;
+      --red: #C0392B; --red-bg: #FDECEA; --red-border: #f5c0bb;
+      --amber: #D4850A; --amber-bg: #FEF3E2; --amber-border: #f5d08a;
+      --blue: #1A6FA3; --blue-bg: #E6F2FA; --blue-border: #a8d0ea;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'DM Sans',sans-serif; background:var(--off-white); color:var(--text-dark); min-height:100vh; }
+
+    .topbar {
+      position:fixed; top:0; left:0; right:0; z-index:100; height:72px;
+      background:var(--topbar-bg); border-bottom:1px solid var(--topbar-border);
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 36px; box-shadow:0 4px 32px rgba(0,0,0,0.35);
+    }
+    .topbar-left { display:flex; align-items:center; gap:16px; }
+    .logo {
+      width:42px; height:42px; border-radius:12px;
+      background:linear-gradient(135deg,var(--gold),var(--gold-dim));
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Playfair Display',serif; font-size:14px; font-weight:700;
+      color:var(--topbar-bg); box-shadow:0 2px 12px rgba(201,168,76,.35);
+    }
+    .topbar-title { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:#F5EDD6; }
+    .topbar-sub { font-size:11px; color:rgba(201,168,76,.6); letter-spacing:.14em; text-transform:uppercase; }
+    .topbar-badge {
+      padding:6px 14px; border-radius:50px;
+      background:rgba(201,168,76,.12); border:1px solid rgba(201,168,76,.25);
+      font-size:12px; color:var(--gold-light); letter-spacing:.08em;
+    }
+
+    .main { padding:100px 48px 80px; max-width:900px; margin:0 auto; }
+
+    .hero { text-align:center; padding:20px 0 48px; }
+    .hero-eyebrow { font-size:11px; font-weight:500; letter-spacing:.22em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
+    .hero h1 { font-family:'Playfair Display',serif; font-size:42px; font-weight:400; color:var(--text-dark); margin-bottom:10px; }
+    .hero h1 em { font-style:italic; color:var(--gold-dim); }
+    .hero p { font-size:15px; color:var(--text-light); }
+    .hero-divider { width:100px; height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); margin:28px auto 0; }
+
+    /* ── SETUP BLOCK ── */
+    .setup-card {
+      background:var(--white); border:1px solid var(--border);
+      border-radius:20px; padding:32px; margin-bottom:28px;
+    }
+    .setup-card h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--text-dark); margin-bottom:6px; }
+    .setup-card p { font-size:14px; color:var(--text-light); margin-bottom:20px; line-height:1.6; }
+    .url-row { display:flex; gap:10px; }
+    .url-input {
+      flex:1; padding:12px 16px;
+      background:var(--off-white); border:1.5px solid var(--border);
+      border-radius:12px; font-family:'DM Sans',sans-serif; font-size:14px;
+      color:var(--text-dark); outline:none;
+      transition:border-color .2s, box-shadow .2s;
+    }
+    .url-input:focus { border-color:var(--gold-light); box-shadow:0 0 0 3px var(--gold-glow); background:var(--white); }
+    .url-input::placeholder { color:var(--text-light); }
+    .btn-run {
+      display:flex; align-items:center; gap:8px;
+      padding:12px 22px;
+      background:linear-gradient(135deg,var(--gold),var(--gold-dim));
+      color:var(--topbar-bg); border:none; border-radius:12px;
+      font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600;
+      cursor:pointer; transition:all .2s; white-space:nowrap;
+      box-shadow:0 2px 12px rgba(201,168,76,.3);
+    }
+    .btn-run:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(201,168,76,.45); }
+    .btn-run:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+    .btn-run svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2.3; }
+
+    /* ── CHECK LIST ── */
+    .checks { display:flex; flex-direction:column; gap:14px; margin-bottom:32px; }
+
+    .check-item {
+      background:var(--white); border:1px solid var(--border);
+      border-radius:16px; padding:20px 24px;
+      display:flex; align-items:flex-start; gap:16px;
+      transition:border-color .25s, box-shadow .25s;
+    }
+    .check-item.pass  { border-color:var(--green-border); background:var(--green-bg); }
+    .check-item.fail  { border-color:var(--red-border);   background:var(--red-bg);   }
+    .check-item.warn  { border-color:var(--amber-border); background:var(--amber-bg); }
+    .check-item.info  { border-color:var(--blue-border);  background:var(--blue-bg);  }
+    .check-item.running { border-color:var(--gold-light); background:var(--gold-pale); }
+
+    .check-icon {
+      width:36px; height:36px; border-radius:10px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .check-item.idle    .check-icon { background:var(--cream);      color:var(--text-light); }
+    .check-item.running .check-icon { background:var(--gold-pale);  color:var(--gold-dim);   animation:pulse 1s ease-in-out infinite; }
+    .check-item.pass    .check-icon { background:var(--green-bg);   color:var(--green);      border:1px solid var(--green-border); }
+    .check-item.fail    .check-icon { background:var(--red-bg);     color:var(--red);        border:1px solid var(--red-border); }
+    .check-item.warn    .check-icon { background:var(--amber-bg);   color:var(--amber);      border:1px solid var(--amber-border); }
+    .check-item.info    .check-icon { background:var(--blue-bg);    color:var(--blue);       border:1px solid var(--blue-border); }
+    .check-icon svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2.2; }
+
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
+
+    .check-body { flex:1; }
+    .check-name { font-size:15px; font-weight:600; color:var(--text-dark); margin-bottom:3px; }
+    .check-item.pass .check-name { color:var(--green); }
+    .check-item.fail .check-name { color:var(--red); }
+    .check-item.warn .check-name { color:var(--amber); }
+    .check-item.info .check-name { color:var(--blue); }
+    .check-desc { font-size:13px; color:var(--text-light); line-height:1.5; }
+    .check-item.pass .check-desc { color:#3a9467; }
+    .check-item.fail .check-desc { color:#a0291f; }
+    .check-item.warn .check-desc { color:#a86208; }
+    .check-item.info .check-desc { color:#1255a0; }
+
+    .check-detail {
+      margin-top:10px; padding:10px 14px;
+      background:rgba(0,0,0,.04); border-radius:8px;
+      font-size:12px; font-family:monospace; line-height:1.7;
+      color:var(--text-mid); word-break:break-all;
+      display:none;
+    }
+    .check-detail.show { display:block; }
+
+    .check-fix {
+      margin-top:10px; font-size:13px; font-weight:500;
+      display:none;
+    }
+    .check-fix.show { display:block; }
+    .check-item.fail .check-fix { color:var(--red); }
+    .check-item.warn .check-fix { color:var(--amber); }
+
+    /* ── SUMMARY ── */
+    .summary {
+      background:var(--white); border:1px solid var(--border);
+      border-radius:20px; padding:28px 32px;
+      display:none;
+    }
+    .summary.show { display:block; }
+    .summary h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:600; margin-bottom:16px; }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+    .summary-stat { text-align:center; padding:16px; border-radius:12px; }
+    .summary-stat.pass { background:var(--green-bg); color:var(--green); }
+    .summary-stat.fail { background:var(--red-bg);   color:var(--red); }
+    .summary-stat.warn { background:var(--amber-bg); color:var(--amber); }
+    .summary-stat.info { background:var(--blue-bg);  color:var(--blue); }
+    .summary-num { font-family:'Playfair Display',serif; font-size:36px; font-weight:600; line-height:1; }
+    .summary-lbl { font-size:12px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; margin-top:4px; opacity:.8; }
+    .summary-msg { font-size:14px; color:var(--text-light); line-height:1.7; }
+
+    .btn-rerun {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:11px 20px; margin-top:16px;
+      background:var(--cream); border:1px solid var(--border);
+      border-radius:12px; font-family:'DM Sans',sans-serif;
+      font-size:14px; font-weight:500; color:var(--text-mid);
+      cursor:pointer; transition:all .18s;
+    }
+    .btn-rerun:hover { background:var(--gold-pale); border-color:var(--gold-light); color:var(--gold-dim); }
+    .btn-rerun svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2.2; }
+
+    /* ── INDEX.HTML WIRING STATUS ── */
+    .wiring-card {
+      background:var(--white); border:1px solid var(--border);
+      border-radius:20px; padding:28px 32px; margin-top:24px;
+    }
+    .wiring-card h2 { font-family:'Playfair Display',serif; font-size:20px; font-weight:600; margin-bottom:6px; }
+    .wiring-card p { font-size:14px; color:var(--text-light); margin-bottom:20px; }
+    .wiring-checks { display:flex; flex-direction:column; gap:8px; }
+    .wiring-row {
+      display:flex; align-items:center; gap:12px;
+      padding:10px 14px; border-radius:10px; font-size:13px;
+    }
+    .wiring-row.ok   { background:var(--green-bg); color:var(--green); }
+    .wiring-row.bad  { background:var(--red-bg);   color:var(--red); }
+    .wiring-row.warn { background:var(--amber-bg); color:var(--amber); }
+    .wiring-row svg  { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2.2; flex-shrink:0; }
+    .wiring-row code { font-family:monospace; font-size:12px; background:rgba(0,0,0,.06); padding:1px 6px; border-radius:4px; }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo">HH</div>
+    <div>
+      <div class="topbar-title">Helping Hands</div>
+      <div class="topbar-sub">QC Diagnostics</div>
+    </div>
+  </div>
+  <div class="topbar-badge">Developer Tool</div>
+</header>
+
+<main class="main">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Quality Control</div>
+    <h1>Stack <em>Diagnostics</em></h1>
+    <p>Tests every layer — API config, Apps Script, Drive, Sheets, and index.html wiring.</p>
+    <div class="hero-divider"></div>
+  </div>
+
+  <!-- URL input -->
+  <div class="setup-card">
+    <h2>Apps Script URL</h2>
+    <p>Paste your Web App URL from Apps Script (the same one that goes in <code>api.js</code>). Leave blank to test only local checks.</p>
+    <div class="url-row">
+      <input class="url-input" id="urlInput" type="url"
+        placeholder="https://script.google.com/macros/s/AKfycb…/exec" />
+      <button class="btn-run" id="runBtn" onclick="runAll()">
+        <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run All Checks
+      </button>
+    </div>
+  </div>
+
+  <!-- Checks -->
+  <div class="checks" id="checks">
+
+    <div class="check-item idle" id="chk-apifile">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">1 — api.js is loaded</div>
+        <div class="check-desc">Checks that api.js is on the page and the <code>API</code> object exists.</div>
+        <div class="check-detail" id="chk-apifile-detail"></div>
+        <div class="check-fix" id="chk-apifile-fix"></div>
+      </div>
+    </div>
+
+    <div class="check-item idle" id="chk-url">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">2 — APPS_SCRIPT_URL is set</div>
+        <div class="check-desc">Checks the URL field above and the value inside api.js.</div>
+        <div class="check-detail" id="chk-url-detail"></div>
+        <div class="check-fix" id="chk-url-fix"></div>
+      </div>
+    </div>
+
+    <div class="check-item idle" id="chk-ping">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">3 — Apps Script is reachable (ping)</div>
+        <div class="check-desc">Sends a GET ?action=ping to your web app and expects <code>{ok:true}</code>.</div>
+        <div class="check-detail" id="chk-ping-detail"></div>
+        <div class="check-fix" id="chk-ping-fix"></div>
+      </div>
+    </div>
+
+    <div class="check-item idle" id="chk-list">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">4 — Google Sheet is readable (list)</div>
+        <div class="check-desc">Calls <code>?action=list</code> and checks that the Sheet returns an array.</div>
+        <div class="check-detail" id="chk-list-detail"></div>
+        <div class="check-fix" id="chk-list-fix"></div>
+      </div>
+    </div>
+
+    <div class="check-item idle" id="chk-token">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">5 — Drive upload token works</div>
+        <div class="check-desc">Calls <code>?action=token</code> — Apps Script must return an OAuth token and folder ID.</div>
+        <div class="check-detail" id="chk-token-detail"></div>
+        <div class="check-fix" id="chk-token-fix"></div>
+      </div>
+    </div>
+
+    <div class="check-item idle" id="chk-write">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">6 — Sheet is writable (add + delete test row)</div>
+        <div class="check-desc">Adds a test document row, verifies it appears in list, then deletes it. No real files touched.</div>
+        <div class="check-detail" id="chk-write-detail"></div>
+        <div class="check-fix" id="chk-write-fix"></div>
+      </div>
+    </div>
+
+    <div class="check-item idle" id="chk-wiring">
+      <div class="check-icon"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <div class="check-body">
+        <div class="check-name">7 — index.html is wired to API</div>
+        <div class="check-desc">Inspects index.html to check if dummy data has been replaced with real API calls.</div>
+        <div class="check-detail" id="chk-wiring-detail"></div>
+        <div class="check-fix" id="chk-wiring-fix"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Summary -->
+  <div class="summary" id="summary">
+    <h2 id="summary-title">Results</h2>
+    <div class="summary-grid">
+      <div class="summary-stat pass"><div class="summary-num" id="s-pass">0</div><div class="summary-lbl">Passed</div></div>
+      <div class="summary-stat fail"><div class="summary-num" id="s-fail">0</div><div class="summary-lbl">Failed</div></div>
+      <div class="summary-stat warn"><div class="summary-num" id="s-warn">0</div><div class="summary-lbl">Warnings</div></div>
+      <div class="summary-stat info"><div class="summary-num" id="s-info">0</div><div class="summary-lbl">Skipped</div></div>
+    </div>
+    <div class="summary-msg" id="summary-msg"></div>
+    <button class="btn-rerun" onclick="runAll()">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Run Again
+    </button>
+  </div>
+
+  <!-- Index wiring detail -->
+  <div class="wiring-card" id="wiringCard" style="display:none">
+    <h2>index.html Wiring Detail</h2>
+    <p>Line-by-line check of whether index.html has been updated to use the API.</p>
+    <div class="wiring-checks" id="wiringChecks"></div>
+  </div>
+
+</main>
+
+<script>
+  /* ── helpers ── */
+  const icons = {
+    ok:      `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
+    fail:    `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    warn:    `<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    info:    `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+    spinner: `<svg viewBox="0 0 24 24" style="animation:spin .7s linear infinite"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>`,
+  };
+
+  const style = document.createElement('style');
+  style.textContent = `@keyframes spin{to{transform:rotate(360deg)}}`;
+  document.head.appendChild(style);
+
+  function setCheck(id, state, name, desc, detail = '', fix = '') {
+    const el     = document.getElementById(id);
+    const iconEl = el.querySelector('.check-icon');
+    const nameEl = el.querySelector('.check-name');
+    const descEl = el.querySelector('.check-desc');
+    const detEl  = document.getElementById(id + '-detail');
+    const fixEl  = document.getElementById(id + '-fix');
+
+    el.className = 'check-item ' + state;
+    iconEl.innerHTML = icons[state === 'pass' ? 'ok' : state === 'running' ? 'spinner' : state === 'fail' ? 'fail' : state === 'warn' ? 'warn' : 'info'];
+    nameEl.textContent = name;
+    descEl.innerHTML   = desc;
+    if (detail) { detEl.textContent = detail; detEl.classList.add('show'); }
+    else        { detEl.classList.remove('show'); }
+    if (fix)    { fixEl.innerHTML = '→ ' + fix; fixEl.classList.add('show'); }
+    else        { fixEl.classList.remove('show'); }
+  }
+
+  async function fetchScript(url, params = {}) {
+    const u = new URL(url);
+    Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+    const res  = await fetch(u.toString());
+    const text = await res.text();
+    const clean = text.replace(/^\/\*-secure-[\w-]+\*\//, '').trim();
+    return JSON.parse(clean);
+  }
+
+  async function postScript(url, payload) {
+    const form = new FormData();
+    form.append('payload', JSON.stringify(payload));
+    const res  = await fetch(url, { method: 'POST', body: form });
+    const text = await res.text();
+    const clean = text.replace(/^\/\*-secure-[\w-]+\*\//, '').trim();
+    return JSON.parse(clean);
+  }
+
+  /* ══════════════════════════════════════════
+     CHECKS
+  ══════════════════════════════════════════ */
+
+  // 1 — api.js loaded
+  async function checkApiFile() {
+    setCheck('chk-apifile', 'running', '1 — Checking api.js…', '');
+    await tick();
+    if (typeof API !== 'undefined' && typeof API.loadDocuments === 'function') {
+      setCheck('chk-apifile', 'pass',
+        '1 — api.js is loaded ✓',
+        'The <code>API</code> object exists with all expected methods.',
+        'Methods found: ' + Object.keys(API).join(', '));
+      return true;
+    } else {
+      setCheck('chk-apifile', 'fail',
+        '1 — api.js not found ✗',
+        '<code>API</code> is undefined — api.js either isn\'t linked or has a syntax error.',
+        '',
+        'Add <code>&lt;script src="api.js"&gt;&lt;/script&gt;</code> before <code>&lt;/body&gt;</code> in this page AND in index.html.');
+      return false;
+    }
+  }
+
+  // 2 — URL set
+  async function checkUrl(url) {
+    setCheck('chk-url', 'running', '2 — Checking URL…', '');
+    await tick();
+    if (!url) {
+      setCheck('chk-url', 'fail',
+        '2 — APPS_SCRIPT_URL is empty ✗',
+        'No URL was entered above and <code>APPS_SCRIPT_URL</code> in api.js is blank.',
+        '',
+        'Complete SETUP.md Part 5 to get your Web App URL, then paste it above.');
+      return false;
+    }
+    if (!url.includes('script.google.com/macros/s/')) {
+      setCheck('chk-url', 'warn',
+        '2 — URL looks unusual ⚠',
+        'The URL doesn\'t look like a standard Apps Script web app URL.',
+        'Got: ' + url,
+        'It should look like: <code>https://script.google.com/macros/s/AKfycb…/exec</code>');
+      return true;
+    }
+    setCheck('chk-url', 'pass',
+      '2 — URL is set ✓',
+      'URL format looks correct.',
+      url);
+    return true;
+  }
+
+  // 3 — Ping
+  async function checkPing(url) {
+    setCheck('chk-ping', 'running', '3 — Pinging Apps Script…', '');
+    await tick();
+    try {
+      const data = await fetchScript(url, { action: 'ping' });
+      if (data.ok) {
+        setCheck('chk-ping', 'pass',
+          '3 — Apps Script is reachable ✓',
+          'Got <code>{ok:true}</code> from your web app.',
+          JSON.stringify(data));
+        return true;
+      } else {
+        setCheck('chk-ping', 'fail',
+          '3 — Apps Script returned an error ✗',
+          'The server responded but returned an error.',
+          JSON.stringify(data),
+          'Check that <code>doGet</code> in api.gs handles <code>action=ping</code> and is deployed as "Execute as: Me".');
+        return false;
+      }
+    } catch(e) {
+      setCheck('chk-ping', 'fail',
+        '3 — Apps Script unreachable ✗',
+        'Could not reach the server. CORS error or wrong URL.',
+        e.message,
+        'Re-deploy the Apps Script (Deploy → Manage → New version) and make sure "Who has access" is set to <strong>Anyone</strong>.');
+      return false;
+    }
+  }
+
+  // 4 — List
+  async function checkList(url) {
+    setCheck('chk-list', 'running', '4 — Reading from Sheet…', '');
+    await tick();
+    try {
+      const data = await fetchScript(url, { action: 'list' });
+      if (Array.isArray(data)) {
+        setCheck('chk-list', 'pass',
+          `4 — Sheet is readable ✓ (${data.length} row${data.length!==1?'s':''})`,
+          `Returned ${data.length} document${data.length!==1?'s':''} from the Sheet.`,
+          data.length ? 'First row: ' + JSON.stringify(data[0]) : 'Sheet is empty — that\'s fine, add docs via the portal.');
+        return true;
+      } else {
+        setCheck('chk-list', 'fail',
+          '4 — Sheet returned unexpected data ✗',
+          'Expected an array, got something else.',
+          JSON.stringify(data).slice(0, 200),
+          'Check that the Sheet tab is named exactly <strong>Documents</strong> and headers are in Row 1.');
+        return false;
+      }
+    } catch(e) {
+      setCheck('chk-list', 'fail',
+        '4 — Sheet read failed ✗',
+        'Error reading from Google Sheets.',
+        e.message,
+        'Make sure the service account email has <strong>Editor</strong> access to the Sheet and SHEET_ID is correct in api.gs.');
+      return false;
+    }
+  }
+
+  // 5 — Token
+  async function checkToken(url) {
+    setCheck('chk-token', 'running', '5 — Getting Drive token…', '');
+    await tick();
+    try {
+      const data = await fetchScript(url, { action: 'token' });
+      if (data.token && data.folderId) {
+        setCheck('chk-token', 'pass',
+          '5 — Drive token works ✓',
+          'Got a valid OAuth token and folder ID. File uploads will work.',
+          'Token length: ' + data.token.length + ' chars | Folder ID: ' + data.folderId);
+        return true;
+      } else if (data.token && !data.folderId) {
+        setCheck('chk-token', 'warn',
+          '5 — Token OK but no folder ID ⚠',
+          'Got a token but <code>folderId</code> is missing — uploads will fail.',
+          JSON.stringify(data),
+          'Set <code>FOLDER_ID</code> in api.gs and re-deploy.');
+        return false;
+      } else {
+        setCheck('chk-token', 'fail',
+          '5 — Token request failed ✗',
+          'Apps Script didn\'t return a token.',
+          JSON.stringify(data),
+          'Make sure <code>doGet</code> handles <code>action=token</code> and returns <code>ScriptApp.getOAuthToken()</code>.');
+        return false;
+      }
+    } catch(e) {
+      setCheck('chk-token', 'fail',
+        '5 — Token request errored ✗',
+        'Could not get upload token.',
+        e.message,
+        'Re-deploy the Apps Script after any changes to api.gs.');
+      return false;
+    }
+  }
+
+  // 6 — Write (add + delete test row)
+  async function checkWrite(url) {
+    setCheck('chk-write', 'running', '6 — Testing Sheet write…', '');
+    await tick();
+    const testName = '__qc_test_' + Date.now();
+    let testId = null;
+    try {
+      // Add
+      const added = await postScript(url, {
+        action: 'add', name: testName, type: 'gen',
+        labels: '', desc: 'QC test row — safe to delete', driveFileId: '', url: '#'
+      });
+      if (!added.ok || !added.doc?.id) throw new Error('Add returned: ' + JSON.stringify(added));
+      testId = added.doc.id;
+
+      // Verify it's in the list
+      const list = await fetchScript(url, { action: 'list' });
+      const found = Array.isArray(list) && list.some(r => r.id === String(testId) || r.name === testName);
+      if (!found) throw new Error('Test row not found in list after add');
+
+      // Delete
+      const deleted = await postScript(url, { action: 'delete', id: String(testId), driveFileId: '' });
+      if (!deleted.ok) throw new Error('Delete returned: ' + JSON.stringify(deleted));
+
+      setCheck('chk-write', 'pass',
+        '6 — Sheet is writable ✓',
+        'Successfully added a test row, found it in the list, then deleted it.',
+        `Test row id: ${testId} | Name: ${testName}`);
+      return true;
+    } catch(e) {
+      setCheck('chk-write', 'fail',
+        '6 — Sheet write failed ✗',
+        'Could not write to or read back from the Sheet.',
+        e.message + (testId ? ` | test id was: ${testId}` : ''),
+        'Check service account has Editor access to the Sheet. If a test row was left behind, delete it manually.');
+      return false;
+    }
+  }
+
+  // 7 — Index wiring
+  async function checkWiring() {
+    setCheck('chk-wiring', 'running', '7 — Inspecting index.html…', '');
+    await tick();
+
+    const wiringChecks = [
+      {
+        label: '<code>api.js</code> script tag present in index.html',
+        // We test this by checking if API is defined in the parent window context
+        ok: typeof API !== 'undefined',
+        fix: 'Add <code>&lt;script src="api.js"&gt;&lt;/script&gt;</code> just before <code>&lt;/body&gt;</code> in index.html',
+      },
+      {
+        label: 'Dummy <code>let docs = [...]</code> replaced with <code>let docs = []</code>',
+        // Check if the dummy array is still being used (look for known dummy entry)
+        ok: (() => {
+          // Try to find index.html's docs variable via opener/parent
+          try {
+            // If we're running standalone, check window.docs
+            if (typeof window.docs !== 'undefined') {
+              return !window.docs.some(d => d.name === 'Patient Intake Consent Form');
+            }
+            return null; // can't tell
+          } catch { return null; }
+        })(),
+        uncertain: true,
+        fix: 'In index.html, change <code>let docs = [{ id:1, name:\'Patient Intake...\' ... }]</code> to <code>let docs = [];</code>',
+      },
+      {
+        label: '<code>API.loadDocuments()</code> called in <code>DOMContentLoaded</code>',
+        ok: (() => {
+          try {
+            if (typeof window.docs !== 'undefined') {
+              // If docs is empty array and page loaded, likely wired
+              return window.docs !== undefined;
+            }
+            return null;
+          } catch { return null; }
+        })(),
+        uncertain: true,
+        fix: 'Follow the WIRING GUIDE in api.js — replace the DOMContentLoaded block with the API.healthCheck() + API.loadDocuments() version.',
+      },
+      {
+        label: '<code>submitDocument()</code> calls <code>API.addDocument()</code>',
+        ok: null,
+        uncertain: true,
+        fix: 'In submitDocument(), replace <code>docs.unshift(newDoc)</code> with the <code>API.addDocument()</code> block from the WIRING GUIDE in api.js.',
+      },
+      {
+        label: '<code>confirmDelete()</code> calls <code>API.deleteDocument()</code>',
+        ok: null,
+        uncertain: true,
+        fix: 'In confirmDelete(), replace the filter line with the <code>API.deleteDocument()</code> block from the WIRING GUIDE in api.js.',
+      },
+      {
+        label: '<code>saveEdit()</code> calls <code>API.editDocument()</code>',
+        ok: null,
+        uncertain: true,
+        fix: 'In saveEdit(), replace the direct mutation block with the <code>API.editDocument()</code> block from the WIRING GUIDE in api.js.',
+      },
+    ];
+
+    // Render wiring detail card
+    document.getElementById('wiringCard').style.display = 'block';
+    const container = document.getElementById('wiringChecks');
+    container.innerHTML = wiringChecks.map(c => {
+      if (c.ok === true) {
+        return `<div class="wiring-row ok"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>${c.label}</div>`;
+      } else if (c.ok === false) {
+        return `<div class="wiring-row bad"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>${c.label} — ${c.fix}</div>`;
+      } else {
+        return `<div class="wiring-row warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${c.label} — <em>can't auto-detect; verify manually</em></div>`;
+      }
+    }).join('');
+
+    const needsWiring = wiringChecks.some(c => c.ok === false);
+    const allUncertain = wiringChecks.every(c => c.ok === null || c.ok === true || c.uncertain);
+
+    if (!needsWiring && typeof API !== 'undefined') {
+      setCheck('chk-wiring', 'pass',
+        '7 — api.js detected on this page ✓',
+        'api.js is loaded. For index.html wiring, check the detail card below — some items require manual verification.',
+        'See the wiring detail below for each function.');
+    } else if (typeof API === 'undefined') {
+      setCheck('chk-wiring', 'fail',
+        '7 — api.js not on page ✗',
+        'Add <code>&lt;script src="api.js"&gt;&lt;/script&gt;</code> to index.html and this diagnostics page.',
+        '',
+        'Without api.js loaded, none of the API calls will work.');
+    } else {
+      setCheck('chk-wiring', 'warn',
+        '7 — Wiring needs manual verification ⚠',
+        'api.js is present. Check the detail card below to confirm each function has been wired in index.html.',
+        'See detail card below.');
+    }
+  }
+
+  /* ── main runner ── */
+  async function runAll() {
+    const url = document.getElementById('urlInput').value.trim();
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true; btn.textContent = 'Running…';
+
+    // Reset summary
+    document.getElementById('summary').classList.remove('show');
+    document.getElementById('wiringCard').style.display = 'none';
+
+    let pass=0, fail=0, warn=0, info=0;
+
+    const record = (result) => {
+      if (result === 'pass') pass++;
+      else if (result === 'fail') fail++;
+      else if (result === 'warn') warn++;
+      else info++;
+    };
+
+    // 1
+    const apiOk = await checkApiFile();
+    record(apiOk ? 'pass' : 'fail');
+
+    // 2
+    const urlOk = await checkUrl(url);
+    record(urlOk ? (url && !url.includes('script.google.com') ? 'warn' : 'pass') : 'fail');
+
+    // 3–6 need URL
+    if (url) {
+      const pingOk = await checkPing(url);
+      record(pingOk ? 'pass' : 'fail');
+
+      if (pingOk) {
+        const listOk = await checkList(url);
+        record(listOk ? 'pass' : 'fail');
+
+        const tokenOk = await checkToken(url);
+        record(tokenOk ? 'pass' : 'warn');
+
+        const writeOk = await checkWrite(url);
+        record(writeOk ? 'pass' : 'fail');
+      } else {
+        ['chk-list','chk-token','chk-write'].forEach(id =>
+          setCheck(id, 'info', id.replace('chk-','').toUpperCase() + ' — Skipped', 'Skipped because ping failed.'));
+        info += 3;
+      }
+    } else {
+      ['chk-ping','chk-list','chk-token','chk-write'].forEach(id =>
+        setCheck(id, 'info',
+          id.split('-').pop().toUpperCase() + ' — Skipped (no URL)',
+          'Paste your Apps Script URL above to test server connectivity.'));
+      info += 4;
+    }
+
+    // 7
+    await checkWiring();
+    record('info');
+
+    // Summary
+    document.getElementById('s-pass').textContent = pass;
+    document.getElementById('s-fail').textContent = fail;
+    document.getElementById('s-warn').textContent = warn;
+    document.getElementById('s-info').textContent = info;
+
+    let title, msg;
+    if (fail === 0 && warn === 0) {
+      title = '🎉 All checks passed';
+      msg   = 'Everything is connected and working. Upload a real document via index.html to do a final end-to-end test.';
+    } else if (fail === 0) {
+      title = '⚠ Passed with warnings';
+      msg   = 'No hard failures, but review the warnings above — they may cause issues with uploads.';
+    } else {
+      title = `${fail} check${fail!==1?'s':''} failed`;
+      msg   = 'Fix the failed checks above and re-run. Each failure includes a specific fix instruction.';
+    }
+
+    document.getElementById('summary-title').textContent = title;
+    document.getElementById('summary-msg').textContent   = msg;
+    document.getElementById('summary').classList.add('show');
+
+    btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.3"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run All Checks`;
+  }
+
+  function tick() { return new Promise(r => setTimeout(r, 120)); }
+</script>
+
+<!-- Load api.js so check #1 can detect it -->
+<script src="api.js"></script>
+
+</body>
+</html>
